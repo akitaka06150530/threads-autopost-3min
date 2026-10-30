@@ -1,0 +1,24 @@
+name: Threads トークン更新
+
+# 長期トークンは60日で切れるので、毎週月曜に延長して Secret を上書きする
+on:
+  schedule:
+    - cron: "17 0 * * 1"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: トークンを延長して保存
+        env:
+          OLD_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::error::Secret GH_PAT がありません（README参照）"; exit 1; fi
+          RES=$(curl -sS "https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${OLD_TOKEN}")
+          NEW=$(echo "$RES" | jq -r '.access_token // empty')
+          if [ -z "$NEW" ]; then echo "::error::更新に失敗: $(echo "$RES" | jq -c '.error // .')"; exit 1; fi
+          echo "$NEW" | gh secret set THREADS_ACCESS_TOKEN --repo "$REPO"
+          echo "更新しました。有効期限(秒): $(echo "$RES" | jq -r '.expires_in')"
