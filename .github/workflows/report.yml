@@ -1,0 +1,33 @@
+name: 振り返りレポート
+
+# 毎週日曜の朝＋手動で、各投稿の反応を report.csv にまとめる
+on:
+  schedule:
+    - cron: "40 23 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: threads-post
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 集計
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        run: python report.py
+      - name: report.csv を保存
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add report.csv
+          git diff --cached --quiet || (git commit -m "振り返りレポートを更新 [skip ci]" && git pull --rebase && git push)
