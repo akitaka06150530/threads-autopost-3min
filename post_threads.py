@@ -12,6 +12,10 @@ GitHub Actions から 1日数回呼ばれる想定（手元PCからも実行可�
   IMAGE_BASE_URL        … 画像の公開URLの先頭（未指定なら GitHub の raw URL を自動で組み立て）
   DRY_RUN=1             … 実際には投稿せず、何を出すかだけ表示
   NOW="2026-11-02 07:10" … テスト用に現在時刻を上書き（JST）
+
+深夜に出ないよう、出してよい時間帯（JST）を決めている:
+  問題の投稿 … 17時〜22時台   返信 … 6時〜22時台
+  （遅れて時間外になった分は、次の時間帯に順番に出る）
 """
 import csv
 import datetime as dt
@@ -28,6 +32,9 @@ JST = dt.timezone(dt.timedelta(hours=9))
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEDULE = os.path.join(HERE, "schedule.csv")
 STATE = os.path.join(HERE, "state.json")
+
+
+ALLOWED_HOURS = {"post": range(17, 23), "reply": range(6, 23)}
 
 
 def log(*a):
@@ -117,6 +124,10 @@ def main():
             continue
         when = dt.datetime.strptime(r["scheduled_at"], "%Y-%m-%d %H:%M").replace(tzinfo=JST)
         if when > now or r["kind"] in done_kinds:
+            continue
+        if now.hour not in ALLOWED_HOURS.get(r["kind"], range(24)):
+            log(f"時間外のため見送り: {key}（{r['kind']}は{ALLOWED_HOURS[r['kind']].start}〜{ALLOWED_HOURS[r['kind']].stop - 1}時台のみ）")
+            done_kinds.add(r["kind"])
             continue
 
         reply_to_id = None
