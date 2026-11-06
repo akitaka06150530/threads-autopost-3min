@@ -9,7 +9,7 @@ Threads用の【2択】投稿を作って schedule.csv の指定日以降を差�
 1作品あたりの流れ（1日1本・要約→図解の順、6日投稿→8日休み）:
     1日目 18:00  要約の2択を投稿 ＋ すぐ返信で「あらすじ」
     2日目 07:00  答え（理由つき）＋アプリへの誘導
-    2日目 18:00  図解の2択（画像）を投稿 ＋ すぐ返信で「あらすじ」
+    2日目 18:00  図解の2択（画像・コメントでA/B）を投稿 ＋ すぐ返信で「あらすじ」
     3日目 07:00  答え（理由つき）＋アプリへの誘導
 """
 import argparse
@@ -25,7 +25,7 @@ SCHEDULE = os.path.join(HERE, "schedule.csv")
 IMG_DIR = "nitaku/img"
 APP_URL = "https://akitaka.biz/app/30sec/"
 HEADERS = ["key", "cycle", "scheduled_at", "kind", "no", "title", "type",
-           "reply_to", "text", "image", "enabled"]
+           "reply_to", "text", "image", "enabled", "poll"]
 
 
 def two_choices(item, typ):
@@ -46,15 +46,16 @@ def youyaku_texts(item):
     no, title = item["no"], item["title"]
     post = (f"【30秒要約トレーニング #{no}】\n"
             f"『{title}』を20文字で要約。\n正しいのはどっち？\n\n"
-            f"A：{a['t']}\nB：{b['t']}\n\n"
-            f"コメントで「A」か「B」を👇\n（あらすじはスレッドの返信に）")
+            f"👇タップで投票してね\n（あらすじはスレッドの返信に）")
+    poll = json.dumps({"option_a": f"A：{a['t']}", "option_b": f"B：{b['t']}"}, ensure_ascii=False)
     arasuji = f"📖 あらすじ\n{story_of(item)}"
     wrong = "B" if ans == "A" else "A"
     answer = (f"【答え】#{no}『{title}』\n正解は {ans}\n"
+              f"{{POLL_RESULT:{ans}}}\n\n"
               f"「{ok['t']}」\n⭕ {ok['r']}\n\n"
               f"{wrong}「{ng['t']}」\n❌ {ng['r']}\n\n"
               f"▼3択版・ほかのお話もアプリで（無料・登録なし）\n{APP_URL}")
-    return post, arasuji, answer
+    return post, arasuji, answer, poll
 
 
 def zukai_texts(item):
@@ -119,6 +120,8 @@ def main():
         old = list(csv.DictReader(f))
     start_dt = f"{a.start} 00:00"
     kept = [r for r in old if r["scheduled_at"] < start_dt]
+    for r in kept:
+        r.setdefault("poll", "")
 
     rows, pairs = [], []
     day, cycle, n = dt.date.fromisoformat(a.start), a.first_cycle, 0
@@ -130,10 +133,11 @@ def main():
             n += 1
             item = yk[no] if typ == "youyaku" else zk[no]
             if typ == "youyaku":
-                post, arasuji, answer = youyaku_texts(item)
+                post, arasuji, answer, poll = youyaku_texts(item)
                 img = ""
             else:
                 post, arasuji, answer, ab = zukai_texts(item)
+                poll = ""
                 img = f"{IMG_DIR}/zukai_{no}.png"
                 pairs.append((item, ab))
             base = f"n_{typ}_{no}"
@@ -142,7 +146,7 @@ def main():
             common = {"cycle": cycle, "no": no, "title": item["title"], "type": label + "2択", "enabled": "TRUE"}
             rows += [
                 {**common, "key": f"{base}_post", "scheduled_at": p_at, "kind": "post",
-                 "reply_to": "", "text": post, "image": img},
+                 "reply_to": "", "text": post, "image": img, "poll": poll},
                 {**common, "key": f"{base}_arasuji", "scheduled_at": p_at, "kind": "reply",
                  "reply_to": f"{base}_post", "text": arasuji, "image": ""},
                 {**common, "key": f"{base}_answer", "scheduled_at": r_at, "kind": "reply",
@@ -150,6 +154,10 @@ def main():
             ]
             day += dt.timedelta(days=1)
 
+    for r in rows:
+        r.setdefault("poll", "")
+        if r["poll"] and any(not 1 <= len(v) <= 25 for v in json.loads(r["poll"]).values()):
+            raise SystemExit(f"アンケートの選択肢が25文字を超えています: {r['key']}")
     too_long = [r["key"] for r in rows if len(r["text"]) > 500]
     if too_long:
         raise SystemExit(f"500文字を超えた投稿があります: {too_long}")
