@@ -14,7 +14,7 @@ GitHub Actions から 1日数回呼ばれる想定（手元PCからも実行可�
   NOW="2026-11-02 07:10" … テスト用に現在時刻を上書き（JST）
 
 深夜に出ないよう、出してよい時間帯（JST）を決めている:
-  問題の投稿 … 17時〜22時台   返信 … 6時〜22時台
+  問題の投稿 … 17時〜22時台   返信 … 5時〜22時台
   （遅れて時間外になった分は、次の時間帯に順番に出る）
 """
 import csv
@@ -35,7 +35,7 @@ SCHEDULE = os.path.join(HERE, "schedule.csv")
 STATE = os.path.join(HERE, "state.json")
 
 
-ALLOWED_HOURS = {"post": range(17, 23), "reply": range(6, 23)}
+ALLOWED_HOURS = {"post": range(17, 23), "reply": range(5, 23)}
 
 
 def log(*a):
@@ -179,7 +179,7 @@ def main():
             state[key] = {"id": f"DRY-{key}", "posted_at": now.isoformat()}
         else:
             post_id = publish(token, text, image_url, reply_to_id, poll)
-            state[key] = {"id": post_id, "posted_at": dt.datetime.now(JST).isoformat()}
+            state[key] = {"id": post_id, "posted_at": now.isoformat()}
             save_state(state)  # 1件ごとに保存（途中で失敗しても二重投稿しない）
             log(f"   投稿完了 id={post_id}")
         done_count[r["kind"]] += 1

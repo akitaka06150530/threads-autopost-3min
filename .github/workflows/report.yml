@@ -29,5 +29,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add report.csv
+          git add report.csv report_by_hour.csv
           git diff --cached --quiet || (git commit -m "振り返りレポートを更新 [skip ci]" && git pull --rebase && git push)

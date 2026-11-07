@@ -2,9 +2,9 @@ name: Threads 自動投稿
 
 on:
   schedule:
-    # JST 18:05 / 18:35（投稿）と 07:05 / 07:35（返信）。2回目は遅延・失敗時の保険
-    - cron: "5,35 9 * * *"
-    - cron: "5,35 22 * * *"
+    # 予備（本命は cron-job.org）。JST 17〜22時（投稿）と 5〜10時（答え）の毎時5分
+    - cron: "5 8-13 * * *"
+    - cron: "5 20-23,0-1 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

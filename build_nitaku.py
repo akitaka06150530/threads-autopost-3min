@@ -7,6 +7,8 @@ Threads用の【2択】投稿を作って schedule.csv の指定日以降を差�
     python build_nitaku.py --start 2026-11-15 --from-no 05 --images   # 図解の画像も作り直す（要 playwright）
 
 1作品あたりの流れ（1日1本・要約→図解の順、6日投稿→8日休み）:
+    ※ 時刻は --post-hours（既定 17〜22時）を日ごとに使い、答えは12時間後。
+      サイクルごとに1時間ずつずらして、時間帯ごとの反応を比べられるようにしている
     1日目 18:00  要約の2択を投稿 ＋ すぐ返信で「あらすじ」
     2日目 07:00  答え（理由つき）＋アプリへの誘導
     2日目 18:00  図解の2択（画像・コメントでA/B）を投稿 ＋ すぐ返信で「あらすじ」
@@ -107,6 +109,10 @@ def main():
     ap.add_argument("--first-cycle", type=int, default=2)
     ap.add_argument("--on-days", type=int, default=6)
     ap.add_argument("--off-days", type=int, default=8)
+    ap.add_argument("--post-hours", default="17,18,19,20,21,22",
+                    help="1サイクル内の投稿時刻（日ごと）。答えは12時間後")
+    ap.add_argument("--no-rotate", action="store_true",
+                    help="サイクルごとに時刻をずらさない（既定はずらす）")
     ap.add_argument("--images", action="store_true")
     a = ap.parse_args()
 
@@ -123,6 +129,7 @@ def main():
     for r in kept:
         r.setdefault("poll", "")
 
+    hours = [int(h) for h in a.post_hours.split(",")]
     rows, pairs = [], []
     day, cycle, n = dt.date.fromisoformat(a.start), a.first_cycle, 0
     for no in nos[start_i:]:
@@ -141,8 +148,12 @@ def main():
                 img = f"{IMG_DIR}/zukai_{no}.png"
                 pairs.append((item, ab))
             base = f"n_{typ}_{no}"
-            p_at = f"{day} 18:00"
-            r_at = f"{day + dt.timedelta(days=1)} 07:00"
+            # サイクルごとに1つずつずらす → どの時刻も要約・図解・いろいろな曜日に当たる
+            shift = 0 if a.no_rotate else (cycle - a.first_cycle)
+            h = hours[(n - 1 + shift) % len(hours)]
+            p_dt = dt.datetime.combine(day, dt.time(h))
+            p_at = p_dt.strftime("%Y-%m-%d %H:%M")
+            r_at = (p_dt + dt.timedelta(hours=12)).strftime("%Y-%m-%d %H:%M")
             common = {"cycle": cycle, "no": no, "title": item["title"], "type": label + "2択", "enabled": "TRUE"}
             rows += [
                 {**common, "key": f"{base}_post", "scheduled_at": p_at, "kind": "post",
