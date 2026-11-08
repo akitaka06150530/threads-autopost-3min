@@ -48,8 +48,10 @@ def youyaku_texts(item):
     no, title = item["no"], item["title"]
     post = (f"【30秒要約トレーニング #{no}】\n"
             f"『{title}』を20文字で要約。\n正しいのはどっち？\n\n"
+            f"A：{a['t']}\nB：{b['t']}\n\n"
             f"👇タップで投票してね\n（あらすじはスレッドの返信に）")
-    poll = json.dumps({"option_a": f"A：{a['t']}", "option_b": f"B：{b['t']}"}, ensure_ascii=False)
+    # 選択肢はThreads側の文字数の数え方が厳しいので「A」「B」だけにする
+    poll = json.dumps({"option_a": "A", "option_b": "B"}, ensure_ascii=False)
     arasuji = f"📖 あらすじ\n{story_of(item)}"
     wrong = "B" if ans == "A" else "A"
     answer = (f"【答え】#{no}『{title}』\n正解は {ans}\n"
