@@ -26,6 +26,9 @@ DATA = os.path.join(HERE, "nitaku", "app_data.json")
 SCHEDULE = os.path.join(HERE, "schedule.csv")
 IMG_DIR = "nitaku/img"
 APP_URL = "https://akitaka.biz/app/30sec/"
+LINK_EVERY = 3  # アプリへのリンクは答え3回に1回（毎日同じURLを貼るとスパムに見えやすいため）
+LINK_TAIL = f"▼3択版・ほかのお話もアプリで（無料・登録なし）\n{APP_URL}"
+NOLINK_TAIL = "ほかのお話も、また出題します📚"
 HEADERS = ["key", "cycle", "scheduled_at", "kind", "no", "title", "type",
            "reply_to", "text", "image", "enabled", "poll"]
 
@@ -58,7 +61,7 @@ def youyaku_texts(item):
               f"{{POLL_RESULT:{ans}}}\n\n"
               f"「{ok['t']}」\n⭕ {ok['r']}\n\n"
               f"{wrong}「{ng['t']}」\n❌ {ng['r']}\n\n"
-              f"▼3択版・ほかのお話もアプリで（無料・登録なし）\n{APP_URL}")
+              "{TAIL}")
     return post, arasuji, answer, poll
 
 
@@ -74,7 +77,7 @@ def zukai_texts(item):
     answer = (f"【答え】#{no}『{title}』\n正解は {ans}（{ok['type']}）\n"
               f"⭕ {ok['r']}\n\n"
               f"{wrong}（{ng['type']}）\n❌ {ng['r']}\n\n"
-              f"▼3択版・ほかのお話もアプリで（無料・登録なし）\n{APP_URL}")
+              "{TAIL}")
     return post, arasuji, answer, (a, b)
 
 
@@ -167,6 +170,9 @@ def main():
             ]
             day += dt.timedelta(days=1)
 
+    answers = [r for r in rows if r["key"].endswith("_answer")]
+    for i, r in enumerate(answers):
+        r["text"] = r["text"].replace("{TAIL}", LINK_TAIL if i % LINK_EVERY == 0 else NOLINK_TAIL)
     for r in rows:
         r.setdefault("poll", "")
         if r["poll"] and any(not 1 <= len(v) <= 25 for v in json.loads(r["poll"]).values()):
